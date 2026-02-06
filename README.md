@@ -1,16 +1,27 @@
-# React + Vite
+# SQL Sync Cleaner
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend-only React app for cleaning SQL `INSERT` queries by removing selected columns and their matching values across all `VALUES` rows.
 
-Currently, two official plugins are available:
+## Local run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1. `npm install`
+2. `npm run dev`
 
-## React Compiler
+## Production build
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. `npm run build`
+2. `npm run preview`
 
-## Expanding the ESLint configuration
+## GitHub Pages deployment
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+This repo is configured to auto-deploy to GitHub Pages via GitHub Actions on every push to `main`.
+
+Expected URL:
+
+`https://godfather59.github.io/sql-sync-cleaner/`
+
+If this is the first deployment, enable Pages in repository settings:
+
+1. Open repository `Settings`.
+2. Open `Pages`.
+3. Set `Source` to `GitHub Actions`.
