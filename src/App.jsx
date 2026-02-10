@@ -14,6 +14,54 @@ const SQL_DIALECTS = [
 const normalizeColumnName = (columnName) =>
   String(columnName ?? '').trim().toLowerCase()
 
+const SIMPLE_IDENTIFIER_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/
+
+const escapeDoubleQuotes = (value) => String(value).replaceAll('"', '""')
+
+const replaceOnce = (source, search, replacement) => {
+  const index = source.indexOf(search)
+
+  if (index < 0) {
+    return source
+  }
+
+  return (
+    source.slice(0, index) + replacement + source.slice(index + search.length)
+  )
+}
+
+const removePostgresInsertTableQuotes = (sql, statement) => {
+  const insertTarget = statement?.table?.[0]
+
+  if (!insertTarget || !insertTarget.table) {
+    return sql
+  }
+
+  const tableName = String(insertTarget.table)
+  const dbName = insertTarget.db == null ? null : String(insertTarget.db)
+
+  if (!SIMPLE_IDENTIFIER_PATTERN.test(tableName)) {
+    return sql
+  }
+
+  if (dbName !== null && !SIMPLE_IDENTIFIER_PATTERN.test(dbName)) {
+    return sql
+  }
+
+  const quotedTable = `"${escapeDoubleQuotes(tableName)}"`
+  const plainTable = tableName
+
+  if (dbName === null) {
+    return replaceOnce(sql, `INSERT INTO ${quotedTable}`, `INSERT INTO ${plainTable}`)
+  }
+
+  const quotedDb = `"${escapeDoubleQuotes(dbName)}"`
+  const quotedTarget = `${quotedDb}.${quotedTable}`
+  const plainTarget = `${dbName}.${tableName}`
+
+  return replaceOnce(sql, `INSERT INTO ${quotedTarget}`, `INSERT INTO ${plainTarget}`)
+}
+
 const getColumnName = (column) => {
   if (typeof column === 'string') {
     return column
@@ -197,6 +245,10 @@ function App() {
 
       const cleanedAst = result.isAstArray ? [cleanedStatement] : cleanedStatement
       let cleanedSql = parser.sqlify(cleanedAst, { database: result.dialect })
+
+      if (result.dialect === 'postgresql') {
+        cleanedSql = removePostgresInsertTableQuotes(cleanedSql, cleanedStatement)
+      }
 
       if (!cleanedSql.trim().endsWith(';')) {
         cleanedSql = `${cleanedSql};`
