@@ -2,8 +2,41 @@ import { useMemo, useState } from 'react'
 import { Parser } from 'node-sql-parser'
 import './App.css'
 
+const SQL_DIALECTS = [
+  'mysql',
+  'postgresql',
+  'sqlite',
+  'transactsql',
+  'mariadb',
+  'bigquery',
+]
+
 const normalizeColumnName = (columnName) =>
   String(columnName ?? '').trim().toLowerCase()
+
+const getColumnName = (column) => {
+  if (typeof column === 'string') {
+    return column
+  }
+
+  if (!column || typeof column !== 'object') {
+    return String(column ?? '')
+  }
+
+  if (typeof column.value === 'string') {
+    return column.value
+  }
+
+  if (typeof column.column === 'string') {
+    return column.column
+  }
+
+  if (column.expr && typeof column.expr.column === 'string') {
+    return column.expr.column
+  }
+
+  return String(column ?? '')
+}
 
 const parseInsertStatement = (sql, parser) => {
   if (!sql.trim()) {
@@ -11,10 +44,19 @@ const parseInsertStatement = (sql, parser) => {
   }
 
   let parsedAst
+  let dialect
 
-  try {
-    parsedAst = parser.astify(sql)
-  } catch {
+  for (const candidateDialect of SQL_DIALECTS) {
+    try {
+      parsedAst = parser.astify(sql, { database: candidateDialect })
+      dialect = candidateDialect
+      break
+    } catch {
+      // Try the next SQL dialect.
+    }
+  }
+
+  if (!parsedAst || !dialect) {
     return {
       columns: [],
       warning: 'Unable to parse SQL. Please check the query syntax.',
@@ -47,11 +89,11 @@ const parseInsertStatement = (sql, parser) => {
   }
 
   return {
-    columns: statement.columns.map((column) => String(column)),
+    columns: statement.columns.map(getColumnName),
     warning: '',
     statement,
-    statements,
     isAstArray: Array.isArray(parsedAst),
+    dialect,
   }
 }
 
@@ -100,13 +142,14 @@ function App() {
     }
 
     const selectedSet = new Set(selectedColumns)
-    const currentColumns = result.statement.columns.map((column) => String(column))
+    const currentColumns = result.statement.columns
+    const currentColumnNames = currentColumns.map(getColumnName)
     const columnsToKeep = []
     const indexesToKeep = []
 
-    currentColumns.forEach((columnName, columnIndex) => {
+    currentColumnNames.forEach((columnName, columnIndex) => {
       if (!selectedSet.has(normalizeColumnName(columnName))) {
-        columnsToKeep.push(columnName)
+        columnsToKeep.push(currentColumns[columnIndex])
         indexesToKeep.push(columnIndex)
       }
     })
@@ -131,7 +174,7 @@ function App() {
           throw new Error(`Invalid VALUES row at position ${rowIndex + 1}.`)
         }
 
-        if (row.value.length !== currentColumns.length) {
+        if (row.value.length !== currentColumnNames.length) {
           throw new Error(
             `Column/value count mismatch at row ${rowIndex + 1}.`,
           )
@@ -153,7 +196,7 @@ function App() {
       }
 
       const cleanedAst = result.isAstArray ? [cleanedStatement] : cleanedStatement
-      let cleanedSql = parser.sqlify(cleanedAst)
+      let cleanedSql = parser.sqlify(cleanedAst, { database: result.dialect })
 
       if (!cleanedSql.trim().endsWith(';')) {
         cleanedSql = `${cleanedSql};`
